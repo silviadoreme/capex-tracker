@@ -234,8 +234,8 @@ export default function Timesheet() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50">
-                    <th className="text-left p-4 font-medium text-gray-700 text-sm">EPIC ID</th>
-                    <th className="text-left p-4 font-medium text-gray-700 text-sm">EPIC NAME</th>
+                    <th className="text-left p-4 font-medium text-gray-700 text-sm">JIRA LINK</th>
+                    <th className="text-left p-4 font-medium text-gray-700 text-sm">LEAD</th>
                     <th className="text-left p-4 font-medium text-gray-700 text-sm">SUMMARY</th>
                     <th className="text-left p-4 font-medium text-gray-700 text-sm">STATUS</th>
                     <th className="text-left p-4 font-medium text-gray-700 text-sm">CAPEX</th>
@@ -246,10 +246,10 @@ export default function Timesheet() {
                   {timesheetData.map((epic, epicIndex) => (
                     <tr key={epic.epicId} className="border-b border-gray-100">
                       <td className="p-4 align-top">
-                        <span className="text-blue-600 font-medium">{epic.epicId}</span>
+                        <a href={epic.link} target="_blank" className="text-blue-600 font-medium">{epic.epicId}</a>
                       </td>
                       <td className="p-4 align-top">
-                        <span className="font-medium text-gray-900">{epic.epicName}</span>
+                        <span className="font-medium text-gray-900">{epic.lead}</span>
                       </td>
                       <td className="p-4 align-top max-w-xs">
                         <span className="text-gray-600 text-sm">
@@ -264,7 +264,7 @@ export default function Timesheet() {
                       </td>
                       <td className="p-4 align-top">
                         <div className="space-y-2 min-w-[300px]">
-                          {epic.contributors.map((contributor, contributorIndex) => (
+                          {epic.contributors.map((contributor: any, contributorIndex: any) => (
                             <div key={contributorIndex} className="flex items-center justify-between">
                               <span className="text-sm text-gray-700 flex-1">{contributor.name}</span>
                               <div className="flex items-center space-x-2">

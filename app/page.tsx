@@ -22,7 +22,7 @@ const activityTypes = [
 ]
 
 export default function Dashboard() {
-  const { projects, loading, error, updateCapexCategory, updateProjectActivities } = useProjects()
+  const { projects, loading, error, updateCapexCategory, updateProjectActivities, refetch } = useProjects()
   const [filter, setFilter] = useState("All")
   const [showGuidance, setShowGuidance] = useState(false)
   const [editingActivities, setEditingActivities] = useState<string | null>(null)
@@ -87,8 +87,8 @@ export default function Dashboard() {
     }
   }
 
-  const getCapexColor = (category: string) => {
-    switch (category) {
+  const getCapexColor = (capex_category: string) => {
+    switch (capex_category) {
       case "CAPEX":
         return "bg-blue-100 text-blue-800 border-blue-200"
       case "CAPEX R&D":
@@ -122,6 +122,32 @@ export default function Dashboard() {
       year: "numeric",
     })
   }
+
+  const handleCapexCategoryChange = async (projectId: string, value: string) => {
+    await updateCapexCategory(projectId, value);
+
+    // Find the project for context
+    const project = projects.find((p) => p.id === projectId);
+    try {
+      await fetch('/api/slack-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel: '#hack-capex',
+          // No email field in project, fallback to default
+          email: 'ionut.c@adoreme.com',
+          message: ':joystick: You’re in! Quick criteria check, and your project’s good to go..',
+          title: project?.name || 'Project title',
+          link: project?.jira_link || ''
+        })
+      });
+    } catch (e) {
+      console.error('Slack API error', e);
+    }
+
+    // Refetch projects to update the card with the latest data
+    await refetch();
+  };
 
   if (loading) {
     return (
@@ -335,9 +361,9 @@ export default function Dashboard() {
               <CardHeader className="pb-4">
                 <div className="flex items-start justify-between mb-3">
                   <CardTitle className="text-lg">
-                    {project.jira_url ? (
+                    {project.jira_link ? (
                       <a
-                        href={project.jira_url}
+                        href={project.jira_link}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:text-blue-800 flex items-center"
@@ -358,21 +384,32 @@ export default function Dashboard() {
                     )}
                   </div>
                 </div>
-                <CardDescription className="text-gray-600 leading-relaxed">
+                <CardDescription className="text-xl font-bold text-gray-900 mb-2">
                   {project.summary || "No summary available"}
                 </CardDescription>
               </CardHeader>
 
               <CardContent className="pt-0">
                 <div className="space-y-4">
-                  <div className="text-sm text-gray-600">
-                    <span className="font-medium">Lead:</span> {project.lead || "Not assigned"}
+                  <div className="text-sm text-gray-600 flex justify-between">
+                    <span className="font-medium">Team Lead: {project.project_lead_name || "Not assigned"}</span> 
+                    {project.jira_link && (
+                      <a
+                        href={project.jira_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-2 inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                      >
+                        <ExternalLink className="w-4 h-4 mr-1" />
+                        Open Jira
+                      </a>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between text-sm text-gray-600">
                     <div className="flex items-center space-x-1">
                       <Users className="w-4 h-4" />
-                      <span>{project.contributorCount} contributors</span>
+                      <span>{project.contributors_count} contributors</span>
                     </div>
                     <div className="flex items-center space-x-1">
                       <Calendar className="w-4 h-4" />
@@ -409,7 +446,7 @@ export default function Dashboard() {
                     </div>
                     <Select
                       value={project.capex_category || ""}
-                      onValueChange={(value) => updateCapexCategory(project.id, value)}
+                      onValueChange={(value) => handleCapexCategoryChange(project.id, value)}
                     >
                       <SelectTrigger
                         className={`w-full ${!project.capex_category ? "border-amber-400 bg-amber-100" : ""}`}

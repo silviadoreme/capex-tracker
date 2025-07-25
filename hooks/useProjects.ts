@@ -30,7 +30,7 @@ export function useProjects() {
             summary:
               "For Content Generators, it's important to have visibility on content usage & performance, to effectively allocate their resources towards what works for content consumers.",
             status: "OPEN",
-            lead: "Dragos Ionita",
+            project_lead_name: "Dragos Ionita",
             contributors:
               "Ionita Dragos, Guta Laurentiu, Proca Cosmin, Carsote Cosmin, Dragomir Diana, Tij Andrei, Tarziu Silvia",
             capex_category: null,
@@ -94,7 +94,7 @@ export function useProjects() {
         .from("projects")
         .select("*")
         .order("created_at", { ascending: false })
-
+      console.log("Fetched projects data:", projectsData)
       if (projectsError) throw projectsError
 
       // Transform the data to parse contributors string

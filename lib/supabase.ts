@@ -27,10 +27,10 @@ export interface Project {
   name: string
   summary: string | null
   status: string
-  lead: string | null
-  contributors: string | null // Comma-separated string of contributor names
+  project_lead_name: string | null
+  contributors_list: string | null // Comma-separated string of contributor names
   capex_category: string | null
-  jira_url: string | null
+  jira_link: string | null
   created_at: string
   updated_at: string
 }

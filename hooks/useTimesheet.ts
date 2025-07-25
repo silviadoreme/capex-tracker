@@ -16,7 +16,7 @@ export interface TimesheetProject {
 }
 
 export function useTimesheet() {
-  const [timesheetData, setTimesheetData] = useState<TimesheetProject[]>([])
+  const [timesheetData, setTimesheetData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -70,25 +70,28 @@ export function useTimesheet() {
       if (projectsError) throw projectsError
 
       // Transform data for timesheet format
-      const transformedData: TimesheetProject[] = (projectsData || []).map((project) => {
-        // Parse contributors from comma-separated string
-        const contributorList = project.contributors_list
-          ? project.contributors_list
-              .split(",")
-              .map((name) => name.trim())
-              .filter(Boolean)
-          : []
+        const transformedData: any[] = (projectsData || [])
+        .filter((project) => project.capex_category === "CAPEX")
+        .map((project) => {
+          // Parse contributors from comma-separated string of emails
+          const contributorList = project.contributors_list
+            ? project.contributors_list
+                .split(",")
+                .map((email: string) => email.trim())
+                .filter(Boolean)
+            : []
 
-        return {
-          epicId: project.id,
-          epicName: project.name,
-          summary: project.summary || "",
-          status: project.status,
-          capex: "CAPEX",
-          contributors: contributorList.map((name) => ({
-            name,
-            effort: 0, // Default effort, will be loaded from monthly_efforts if available
-          })),
+          return {
+            epicId: project.key,
+            lead: project.project_lead_name || "Not set",
+            summary: project.summary || "",
+            link: project.jira_link || "",
+            status: project.status,
+            capex: project.capex_category || "CAPEX",
+            contributors: contributorList.map((email: string) => ({
+              name: email, // You can later resolve name from email if needed
+              effort: 0, // Default effort, will be loaded from monthly_efforts if available
+            })),
         }
       })
 
