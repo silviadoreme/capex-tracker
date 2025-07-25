@@ -137,8 +137,8 @@ export default function Dashboard() {
           // No email field in project, fallback to default
           email: 'ionut.c@adoreme.com',
           message: ':joystick: You’re in! Quick criteria check, and your project’s good to go..',
-          title: project?.name || 'Project title',
-          link: project?.jira_link || ''
+          title: project?.summary || 'Project title',
+          link: 'http://localhost:3000/'
         })
       });
     } catch (e) {

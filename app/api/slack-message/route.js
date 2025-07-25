@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { title } from 'process';
 
 const SLACK_API = 'https://slack.com/api';
 
@@ -52,10 +51,10 @@ async function sendSlackChannelMessage({ channel, email, message, token, link, t
 
 export async function POST(req) {
   try {
-    const { channel, email, message } = await req.json();
+    const { channel, email, message, title, link } = await req.json();
     const token = process.env.SLACK_BOT_TOKEN;
     if (!token) throw new Error('SLACK_BOT_TOKEN not set in environment');
-    const result = await sendSlackChannelMessage({ channel, email, message, token });
+    const result = await sendSlackChannelMessage({ channel, email, message, token, link, title });
     return NextResponse.json({ ok: true, result });
   } catch (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
