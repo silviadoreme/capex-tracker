@@ -6,9 +6,22 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Calendar, Users, ExternalLink, HelpCircle, BarChart3, Clock, Settings, Loader2 } from "lucide-react"
+import {
+  Calendar,
+  Users,
+  ExternalLink,
+  HelpCircle,
+  BarChart3,
+  Clock,
+  Settings,
+  Loader2,
+  Database,
+  Wifi,
+  WifiOff,
+} from "lucide-react"
 import Link from "next/link"
 import { useProjects } from "@/hooks/useProjects"
+import { isSupabaseConfigured } from "@/lib/supabase"
 
 // Simplified activity types without emojis
 const activityTypes = [
@@ -22,13 +35,13 @@ const activityTypes = [
 ]
 
 export default function Dashboard() {
-  const { projects, loading, error, updateCapexCategory, updateProjectActivities } = useProjects()
+  const { projects, loading, error, updateCapexCategory, updateProjectActivities, refetch } = useProjects()
   const [filter, setFilter] = useState("All")
   const [showGuidance, setShowGuidance] = useState(false)
   const [editingActivities, setEditingActivities] = useState<string | null>(null)
 
-  const toggleActivity = (projectId: string, activityId: string) => {
-    const project = projects.find((p) => p.id === projectId)
+  const toggleActivity = (projectKey: string, activityId: string) => {
+    const project = projects.find((p) => p.key === projectKey)
     if (!project) return
 
     const currentActivities = project.activities || []
@@ -36,19 +49,19 @@ export default function Dashboard() {
       ? currentActivities.filter((id) => id !== activityId)
       : [...currentActivities, activityId]
 
-    updateProjectActivities(projectId, newActivities, false)
+    updateProjectActivities(projectKey, newActivities, false)
   }
 
-  const saveActivities = (projectId: string) => {
-    const project = projects.find((p) => p.id === projectId)
+  const saveActivities = (projectKey: string) => {
+    const project = projects.find((p) => p.key === projectKey)
     if (!project) return
 
-    updateProjectActivities(projectId, project.activities || [], true)
+    updateProjectActivities(projectKey, project.activities || [], true)
     setEditingActivities(null)
   }
 
-  const editActivities = (projectId: string) => {
-    setEditingActivities(projectId)
+  const editActivities = (projectKey: string) => {
+    setEditingActivities(projectKey)
   }
 
   const filteredProjects = projects
@@ -111,16 +124,21 @@ export default function Dashboard() {
     )
   }
 
-  const isEditingProject = (projectId: string) => {
-    return editingActivities === projectId
+  const isEditingProject = (projectKey: string) => {
+    return editingActivities === projectKey
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    })
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "N/A"
+    try {
+      return new Date(dateString).toLocaleDateString("en-US", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      })
+    } catch {
+      return dateString
+    }
   }
 
   if (loading) {
@@ -128,7 +146,7 @@ export default function Dashboard() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex items-center space-x-2">
           <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-          <span className="text-gray-600">Loading projects from database...</span>
+          <span className="text-gray-600">Loading CAPEX Tracker...</span>
         </div>
       </div>
     )
@@ -137,9 +155,12 @@ export default function Dashboard() {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-600 mb-2">Error loading projects from database</div>
-          <div className="text-gray-600 text-sm">{error}</div>
+        <div className="text-center max-w-md">
+          <div className="text-red-600 mb-2 font-semibold">Application Error</div>
+          <div className="text-gray-600 text-sm mb-4">{error}</div>
+          <Button onClick={refetch} className="mt-4">
+            Retry
+          </Button>
         </div>
       </div>
     )
@@ -154,9 +175,23 @@ export default function Dashboard() {
             <div className="flex items-center space-x-3">
               <BarChart3 className="w-8 h-8 text-blue-600" />
               <h1 className="text-2xl font-bold text-gray-900">CAPEX Tracker</h1>
-              <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                Live Data
-              </Badge>
+              {isSupabaseConfigured ? (
+                <Badge
+                  variant="outline"
+                  className="text-xs bg-green-50 text-green-700 border-green-200 flex items-center space-x-1"
+                >
+                  <Wifi className="w-3 h-3" />
+                  <span>Live Database</span>
+                </Badge>
+              ) : (
+                <Badge
+                  variant="outline"
+                  className="text-xs bg-amber-50 text-amber-700 border-amber-200 flex items-center space-x-1"
+                >
+                  <WifiOff className="w-3 h-3" />
+                  <span>Demo Mode</span>
+                </Badge>
+              )}
             </div>
             <div className="flex items-center space-x-2">
               <Button variant="ghost" className="text-gray-600">
@@ -178,93 +213,137 @@ export default function Dashboard() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-3xl font-bold text-gray-900 mb-2">Project Dashboard</h2>
-            <p className="text-gray-600">Track and manage CAPEX-eligible projects from Supabase database</p>
+            <p className="text-gray-600">
+              {isSupabaseConfigured
+                ? `Showing all ${projects.length} projects from database`
+                : `Showing ${projects.length} demo projects`}
+            </p>
+            {/* Debug info */}
+            {isSupabaseConfigured && (
+              <div className="mt-2 text-sm text-gray-500">
+                Categories: {projects.filter((p) => p.capex_category).length} assigned,{" "}
+                {projects.filter((p) => !p.capex_category).length} unassigned
+              </div>
+            )}
           </div>
-          <Dialog open={showGuidance} onOpenChange={setShowGuidance}>
-            <DialogTrigger asChild>
-              <Button
-                variant="outline"
-                className="flex items-center space-x-2 bg-blue-50 border-blue-200 text-blue-700"
-              >
-                <HelpCircle className="w-4 h-4" />
-                <span>CAPEX Guidance</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle className="text-2xl">CAPEX vs OPEX Guidance</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-6">
-                <div>
-                  <div className="flex items-center space-x-2 mb-3">
-                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-blue-600 font-bold text-sm">$</span>
-                    </div>
-                    <h3 className="text-xl font-semibold text-blue-600">CAPEX (Capital Expenditure)</h3>
-                  </div>
-                  <p className="text-gray-700 mb-4">
-                    CAPEX refers to funds used to acquire, upgrade, and maintain physical assets such as property,
-                    buildings, technology, or equipment that will provide benefits for more than one year.
-                  </p>
+          <div className="flex items-center space-x-3">
+            <Button onClick={refetch} variant="outline" className="flex items-center space-x-2 bg-transparent">
+              <Database className="w-4 h-4" />
+              <span>Refresh Data</span>
+            </Button>
+            <Dialog open={showGuidance} onOpenChange={setShowGuidance}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="flex items-center space-x-2 bg-blue-50 border-blue-200 text-blue-700"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                  <span>CAPEX Guide</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl">CAPEX vs OPEX Guidance</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-6">
                   <div>
-                    <p className="font-medium text-gray-900 mb-2">Examples include:</p>
-                    <ul className="space-y-1 text-gray-700">
-                      <li>• Development of new software platforms or products</li>
-                      <li>• Major system upgrades or infrastructure improvements</li>
-                      <li>• Building new features that create long-term value</li>
-                      <li>• Technology acquisitions or implementations</li>
-                      <li>• Development of intellectual property</li>
-                    </ul>
+                    <div className="flex items-center space-x-2 mb-3">
+                      <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                        <span className="text-blue-600 font-bold text-sm">$</span>
+                      </div>
+                      <h3 className="text-xl font-semibold text-blue-600">CAPEX (Capital Expenditure)</h3>
+                    </div>
+                    <p className="text-gray-700 mb-4">
+                      CAPEX refers to funds used to acquire, upgrade, and maintain physical assets such as property,
+                      buildings, technology, or equipment that will provide benefits for more than one year.
+                    </p>
+                    <div>
+                      <p className="font-medium text-gray-900 mb-2">Examples include:</p>
+                      <ul className="space-y-1 text-gray-700">
+                        <li>• Development of new software platforms or products</li>
+                        <li>• Major system upgrades or infrastructure improvements</li>
+                        <li>• Building new features that create long-term value</li>
+                        <li>• Technology acquisitions or implementations</li>
+                        <li>• Development of intellectual property</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center space-x-2 mb-3">
+                      <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
+                        <HelpCircle className="w-4 h-4 text-purple-600" />
+                      </div>
+                      <h3 className="text-xl font-semibold text-purple-600">CAPEX R&D (Research & Development)</h3>
+                    </div>
+                    <p className="text-gray-700 mb-4">
+                      CAPEX R&D represents investments in research and development activities that are expected to
+                      generate future economic benefits and can be capitalized.
+                    </p>
+                    <div>
+                      <p className="font-medium text-gray-900 mb-2">Examples include:</p>
+                      <ul className="space-y-1 text-gray-700">
+                        <li>• Research for new product development</li>
+                        <li>• Prototype development and testing</li>
+                        <li>• Experimental technology initiatives</li>
+                        <li>• Innovation projects with uncertain outcomes</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center space-x-2 mb-3">
+                      <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                        <span className="text-green-600 font-bold text-sm">O</span>
+                      </div>
+                      <h3 className="text-xl font-semibold text-green-600">OPEX (Operating Expenditure)</h3>
+                    </div>
+                    <p className="text-gray-700 mb-4">
+                      OPEX refers to the ongoing costs for running a business, including day-to-day operations,
+                      maintenance, and activities that don't create long-term assets.
+                    </p>
+                    <div>
+                      <p className="font-medium text-gray-900 mb-2">Examples include:</p>
+                      <ul className="space-y-1 text-gray-700">
+                        <li>• Regular maintenance and bug fixes</li>
+                        <li>• Day-to-day operational activities</li>
+                        <li>• Minor updates and patches</li>
+                        <li>• Support and customer service</li>
+                        <li>• Routine administrative tasks</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
 
+        {/* Connection Status */}
+        <div className="mb-6">
+          <Card
+            className={`border-0 shadow-sm ${isSupabaseConfigured ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-3">
+                {isSupabaseConfigured ? (
+                  <Wifi className="w-5 h-5 text-green-600" />
+                ) : (
+                  <WifiOff className="w-5 h-5 text-amber-600" />
+                )}
                 <div>
-                  <div className="flex items-center space-x-2 mb-3">
-                    <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
-                      <HelpCircle className="w-4 h-4 text-purple-600" />
-                    </div>
-                    <h3 className="text-xl font-semibold text-purple-600">CAPEX R&D (Research & Development)</h3>
+                  <div className={`font-medium ${isSupabaseConfigured ? "text-green-900" : "text-amber-900"}`}>
+                    {isSupabaseConfigured ? "Database Connected" : "Demo Mode Active"}
                   </div>
-                  <p className="text-gray-700 mb-4">
-                    CAPEX R&D represents investments in research and development activities that are expected to
-                    generate future economic benefits and can be capitalized.
-                  </p>
-                  <div>
-                    <p className="font-medium text-gray-900 mb-2">Examples include:</p>
-                    <ul className="space-y-1 text-gray-700">
-                      <li>• Research for new product development</li>
-                      <li>• Prototype development and testing</li>
-                      <li>• Experimental technology initiatives</li>
-                      <li>• Innovation projects with uncertain outcomes</li>
-                    </ul>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center space-x-2 mb-3">
-                    <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
-                      <span className="text-green-600 font-bold text-sm">O</span>
-                    </div>
-                    <h3 className="text-xl font-semibold text-green-600">OPEX (Operating Expenditure)</h3>
-                  </div>
-                  <p className="text-gray-700 mb-4">
-                    OPEX refers to the ongoing costs for running a business, including day-to-day operations,
-                    maintenance, and activities that don't create long-term assets.
-                  </p>
-                  <div>
-                    <p className="font-medium text-gray-900 mb-2">Examples include:</p>
-                    <ul className="space-y-1 text-gray-700">
-                      <li>• Regular maintenance and bug fixes</li>
-                      <li>• Day-to-day operational activities</li>
-                      <li>• Minor updates and patches</li>
-                      <li>• Support and customer service</li>
-                      <li>• Routine administrative tasks</li>
-                    </ul>
+                  <div className={`text-sm ${isSupabaseConfigured ? "text-green-700" : "text-amber-700"}`}>
+                    {isSupabaseConfigured
+                      ? `✓ Connected to Supabase - Showing ${projects.length} projects`
+                      : "⚠️ Using demo data - All features available for testing"}
                   </div>
                 </div>
               </div>
-            </DialogContent>
-          </Dialog>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Stats Cards */}
@@ -327,7 +406,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {filteredProjects.map((project) => (
             <Card
-              key={project.id}
+              key={project.key}
               className={`border-0 shadow-sm hover:shadow-md transition-shadow ${
                 !project.capex_category || needsActivities(project) ? "ring-2 ring-amber-300 bg-amber-50 shadow-lg" : ""
               }`}
@@ -335,22 +414,24 @@ export default function Dashboard() {
               <CardHeader className="pb-4">
                 <div className="flex items-start justify-between mb-3">
                   <CardTitle className="text-lg">
-                    {project.jira_url ? (
+                    {project.jira_link ? (
                       <a
-                        href={project.jira_url}
+                        href={project.jira_link}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:text-blue-800 flex items-center"
                       >
-                        {project.name}
+                        {project.project || project.key}
                         <ExternalLink className="w-4 h-4 ml-1" />
                       </a>
                     ) : (
-                      <span className="text-gray-900">{project.name}</span>
+                      <span className="text-gray-900">{project.project || project.key}</span>
                     )}
                   </CardTitle>
                   <div className="flex items-center space-x-2">
-                    <Badge className={`${getStatusColor(project.status)} font-medium`}>{project.status}</Badge>
+                    <Badge className={`${getStatusColor(project.status || "")} font-medium`}>
+                      {project.status || "Unknown"}
+                    </Badge>
                     {project.capex_category && (
                       <Badge className={`${getCapexColor(project.capex_category)} font-medium`}>
                         {project.capex_category}
@@ -366,13 +447,13 @@ export default function Dashboard() {
               <CardContent className="pt-0">
                 <div className="space-y-4">
                   <div className="text-sm text-gray-600">
-                    <span className="font-medium">Lead:</span> {project.lead || "Not assigned"}
+                    <span className="font-medium">Lead:</span> {project.project_lead_name || "Not assigned"}
                   </div>
 
                   <div className="flex items-center justify-between text-sm text-gray-600">
                     <div className="flex items-center space-x-1">
                       <Users className="w-4 h-4" />
-                      <span>{project.contributorCount} contributors</span>
+                      <span>{project.contributors_count || project.contributorCount || 0} contributors</span>
                     </div>
                     <div className="flex items-center space-x-1">
                       <Calendar className="w-4 h-4" />
@@ -381,7 +462,7 @@ export default function Dashboard() {
                   </div>
 
                   {/* Show contributor names */}
-                  {project.contributorList.length > 0 && (
+                  {project.contributorList && project.contributorList.length > 0 && (
                     <div className="text-sm text-gray-600">
                       <span className="font-medium">Contributors:</span>
                       <div className="mt-1 flex flex-wrap gap-1">
@@ -409,7 +490,7 @@ export default function Dashboard() {
                     </div>
                     <Select
                       value={project.capex_category || ""}
-                      onValueChange={(value) => updateCapexCategory(project.id, value)}
+                      onValueChange={(value) => updateCapexCategory(project.key, value)}
                     >
                       <SelectTrigger
                         className={`w-full ${!project.capex_category ? "border-amber-400 bg-amber-100" : ""}`}
@@ -436,9 +517,9 @@ export default function Dashboard() {
                     <div>
                       <div className="flex items-center justify-between mb-3">
                         <label className="text-sm font-medium text-gray-700">Project Activities:</label>
-                        {project.activities_saved && !isEditingProject(project.id) && (
+                        {project.activities_saved && !isEditingProject(project.key) && (
                           <button
-                            onClick={() => editActivities(project.id)}
+                            onClick={() => editActivities(project.key)}
                             className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
                           >
                             <Settings className="w-4 h-4" />
@@ -447,13 +528,13 @@ export default function Dashboard() {
                       </div>
 
                       {/* Editing Mode */}
-                      {(!project.activities_saved || isEditingProject(project.id)) && (
+                      {(!project.activities_saved || isEditingProject(project.key)) && (
                         <div className="space-y-3">
                           <div className="grid grid-cols-2 gap-2">
                             {activityTypes.map((activity) => (
                               <button
                                 key={activity.id}
-                                onClick={() => toggleActivity(project.id, activity.id)}
+                                onClick={() => toggleActivity(project.key, activity.id)}
                                 className={`px-3 py-2 rounded-full text-xs font-medium transition-all ${
                                   project.activities?.includes(activity.id)
                                     ? "bg-blue-600 text-white shadow-md"
@@ -465,7 +546,7 @@ export default function Dashboard() {
                             ))}
                           </div>
                           <Button
-                            onClick={() => saveActivities(project.id)}
+                            onClick={() => saveActivities(project.key)}
                             size="sm"
                             className="w-full bg-blue-600 hover:bg-blue-700"
                           >
@@ -475,7 +556,7 @@ export default function Dashboard() {
                       )}
 
                       {/* Saved Mode - Show only selected activities */}
-                      {project.activities_saved && !isEditingProject(project.id) && (
+                      {project.activities_saved && !isEditingProject(project.key) && (
                         <div>
                           {project.activities && project.activities.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
@@ -507,9 +588,11 @@ export default function Dashboard() {
 
         {projects.length === 0 && (
           <div className="text-center py-12">
-            <div className="text-gray-500 mb-2">No projects found in the database</div>
+            <div className="text-gray-500 mb-2">No projects found</div>
             <div className="text-sm text-gray-400">
-              Check your Supabase connection and ensure the projects table has data
+              {isSupabaseConfigured
+                ? "Check your database connection and ensure the projects table has data"
+                : "The application is running in demo mode"}
             </div>
           </div>
         )}
