@@ -47,9 +47,9 @@ export async function middleware(request: NextRequest) {
       return response
     }
 
+    // log all cookies
     // For protected routes, verify the session
     const data = await supabase.auth.getSession()
-    console.log('data', data)
     let session = data.data.session
     if (!session) {
       // No session found, redirect to login
@@ -65,6 +65,7 @@ export async function middleware(request: NextRequest) {
   }
 }
 
+// ignore this url /.well-known/appspecific/com.chrome.devtools.json
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)', '/.well-known/appspecific/com.chrome.devtools.json'],
 }
