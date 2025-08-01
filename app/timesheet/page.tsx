@@ -95,31 +95,6 @@ export default function Timesheet() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <BarChart3 className="w-8 h-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">CAPEX Tracker</h1>
-              <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                Live Data
-              </Badge>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Link href="/">
-                <Button variant="ghost" className="text-gray-600">
-                  Dashboard
-                </Button>
-              </Link>
-              <Button variant="outline" className="flex items-center space-x-2 bg-blue-50 border-blue-200">
-                <Clock className="w-4 h-4" />
-                <span>Timesheet</span>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
 
       <div className="container mx-auto px-6 py-8">
         {/* Page Header */}

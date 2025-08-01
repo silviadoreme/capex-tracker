@@ -21,18 +21,28 @@ export const supabase = createClient(
 // Export a flag to check if Supabase is properly configured
 export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey)
 
-// Types based on the actual database schema with contributors as comma-separated string
+// Types based on the actual database schema
 export interface Project {
   id: string
   name: string
   summary: string | null
   status: string
-  project_lead_name: string | null
-  contributors_list: string | null // Comma-separated string of contributor names
+  lead: string | null
+  contributors: number
   capex_category: string | null
-  jira_link: string | null
+  jira_url: string | null
+  activities: string[]
+  activities_saved: boolean
   created_at: string
   updated_at: string
+}
+
+export interface Contributor {
+  id: number
+  project_id: string
+  name: string
+  email: string | null
+  role: string | null
 }
 
 export interface MonthlyEffort {

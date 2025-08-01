@@ -1,13 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { supabase, type Project, isSupabaseConfigured } from "@/lib/supabase"
+import { supabase, type Project, type Contributor, isSupabaseConfigured } from "@/lib/supabase"
 
 export interface ProjectWithContributors extends Project {
   contributorList: string[]
   contributorCount: number
-  activities: string[]
-  activities_saved: boolean
 }
 
 export function useProjects() {
@@ -30,9 +28,8 @@ export function useProjects() {
             summary:
               "For Content Generators, it's important to have visibility on content usage & performance, to effectively allocate their resources towards what works for content consumers.",
             status: "OPEN",
-            project_lead_name: "Dragos Ionita",
-            contributors:
-              "Ionita Dragos, Guta Laurentiu, Proca Cosmin, Carsote Cosmin, Dragomir Diana, Tij Andrei, Tarziu Silvia",
+            lead: "Dragos Ionita",
+            contributors: 7,
             capex_category: null,
             jira_url: "https://company.atlassian.net/browse/SPARK-001",
             created_at: new Date().toISOString(),
@@ -57,7 +54,7 @@ export function useProjects() {
               "Complete and ready dashboards, so the lineage will be completed and ready to build applications on top of it.",
             status: "CLOSED",
             lead: "Alex Giurgiu",
-            contributors: "Mantu Razvan-Viorel, Vintila Cosmina, Cristea Ionut",
+            contributors: 3,
             capex_category: "CAPEX",
             jira_url: "https://company.atlassian.net/browse/BQ-002",
             created_at: new Date().toISOString(),
@@ -73,7 +70,7 @@ export function useProjects() {
             summary: "Create new Order model for AM. This a foundational piece for future enhancements.",
             status: "OPEN",
             lead: "Alex Giurgiu",
-            contributors: "Streche Diana, Albata Anda, Giurgiu Alexandru, Platon Elena",
+            contributors: 4,
             capex_category: "CAPEX R&D",
             jira_url: "https://company.atlassian.net/browse/AM-003",
             created_at: new Date().toISOString(),
@@ -89,30 +86,28 @@ export function useProjects() {
         return
       }
 
-      // Fetch all projects from the single table
+      // Fetch projects and their contributors
       const { data: projectsData, error: projectsError } = await supabase
         .from("projects")
-        .select("*")
+        .select(`
+          *,
+          contributors:contributors(name)
+        `)
         .order("created_at", { ascending: false })
-      console.log("Fetched projects data:", projectsData)
+
       if (projectsError) throw projectsError
 
-      // Transform the data to parse contributors string
-      const transformedProjects: ProjectWithContributors[] = (projectsData || []).map((project) => {
-        // Parse contributors from comma-separated string
+      // Transform the data to include contributor information
+      const transformedProjects: ProjectWithContributors[] = (projectsData || []).map((project: any) => {
+        // Extract contributor names from the joined contributors table
         const contributorList = project.contributors
-          ? project.contributors
-              .split(",")
-              .map((name) => name.trim())
-              .filter(Boolean)
+          ? (project.contributors as Contributor[]).map(c => c.name)
           : []
 
         return {
           ...project,
           contributorList,
           contributorCount: contributorList.length,
-          activities: [], // Will be populated from project metadata if available
-          activities_saved: false, // Will be determined based on project state
         }
       })
 
@@ -131,25 +126,31 @@ export function useProjects() {
 
       if (error) throw error
 
+      // Fetch updated project data including contributors
+      const { data: updatedProject, error: fetchError } = await supabase
+        .from("projects")
+        .select(`
+          *,
+          contributors:contributors(name)
+        `)
+        .eq("id", projectId)
+        .single()
+
+      if (fetchError) throw fetchError
+
       // Update local state
       setProjects((prev) =>
         prev.map((p) =>
           p.id === projectId
             ? {
                 ...p,
-                ...updates,
-                contributorList: updates.contributors
-                  ? updates.contributors
-                      .split(",")
-                      .map((name) => name.trim())
-                      .filter(Boolean)
-                  : p.contributorList,
-                contributorCount: updates.contributors
-                  ? updates.contributors
-                      .split(",")
-                      .map((name) => name.trim())
-                      .filter(Boolean).length
-                  : p.contributorCount,
+                ...updatedProject,
+                contributorList: updatedProject.contributors
+                  ? (updatedProject.contributors as Contributor[]).map(c => c.name)
+                  : [],
+                contributorCount: updatedProject.contributors
+                  ? (updatedProject.contributors as Contributor[]).length
+                  : 0,
               }
             : p,
         ),
@@ -165,9 +166,7 @@ export function useProjects() {
   }
 
   const updateProjectActivities = async (projectId: string, activities: string[], saved = false) => {
-    // For now, we'll store activities in local state
-    // In a real implementation, you might want to add an activities column to the projects table
-    setProjects((prev) => prev.map((p) => (p.id === projectId ? { ...p, activities, activities_saved: saved } : p)))
+    await updateProject(projectId, { activities, activities_saved: saved })
   }
 
   useEffect(() => {
